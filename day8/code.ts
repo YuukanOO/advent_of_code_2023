@@ -1,30 +1,58 @@
 import { readLines } from "../helper.ts";
 
 const lines = await readLines("input.txt");
-const nodeRe = /([A-Z]+) = \(([A-Z]+), ([A-Z]+)\)/;
+const nodeRe = /([0-9A-Z]+) = \(([0-9A-Z]+), ([0-9A-Z]+)\)/;
 
 // Convert instructions to indices
 const instructions = Array.from(lines[0].trim()).map((c) =>
   c === "L" ? 0 : 1
 );
 
-// Maps between node names and node index for easier lookup
-const nodesMapping: Record<string, number> = {};
+const nodes = lines
+  .slice(2)
+  .reduce<Record<string, [string, string]>>((r, line) => {
+    const [_, key, left, right] = line.match(nodeRe)!;
 
-const nodes = lines.slice(2).map((l, i) => {
-  const [_, key, left, right] = l.match(nodeRe)!;
-  nodesMapping[key] = i;
-  return [key, [left, right]] as const;
-});
+    return {
+      ...r,
+      [key]: [left, right],
+    };
+  }, {});
 
-let at = nodesMapping["AAA"];
-const end = nodesMapping["ZZZ"];
-let steps = 0;
+function findSteps(start: string, endFn: (at: string) => boolean): number {
+  let at = start;
+  let steps = 0;
 
-while (at !== end) {
-  const i = steps++ % instructions.length;
-  const n = nodes[at][1][instructions[i]];
-  at = nodesMapping[n];
+  while (!endFn(at)) {
+    at = nodes[at][instructions[steps++ % instructions.length]];
+  }
+
+  return steps;
 }
 
-console.log("Chapter one", steps);
+const chapterOne = findSteps("AAA", (at) => at === "ZZZ");
+
+console.log("Chapter one", chapterOne);
+
+/**
+ * I reach to reddit to find the LCM solution for this one but I share the feeling
+ * of this post https://www.reddit.com/r/adventofcode/comments/18dh4p8/2023_day_8_part_2_im_a_bit_frustrated/
+ * and this one https://www.reddit.com/r/adventofcode/comments/18dfpub/2023_day_8_part_2_why_is_spoiler_correct/
+ *
+ * Looks like the input is arranged to make the correct "iterative" solution incorrect which
+ * is weird.
+ */
+
+const starts = Object.keys(nodes).filter((node) => node.endsWith("A"));
+const stepsToReachEnd = starts.map((s) =>
+  findSteps(s, (at) => at.endsWith("Z"))
+);
+
+// retrieved from the Internet (https://decipher.dev/30-seconds-of-typescript/docs/lcm/)
+function leastCommonMultiple(...arr: number[]): number {
+  const gcd = (x: number, y: number): number => (!y ? x : gcd(y, x % y));
+  const _lcm = (x: number, y: number): number => (x * y) / gcd(x, y);
+  return [...arr].reduce((a, b) => _lcm(a, b));
+}
+
+console.log("Chapter two", leastCommonMultiple(...stepsToReachEnd));
